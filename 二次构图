@@ -1,0 +1,41 @@
+import cv2
+import numpy as np
+
+# 读取图像
+saliency_map = cv2.imread('salience_map.png', cv2.IMREAD_GRAYSCALE)  # 确保是灰度图像
+if saliency_map is None:
+    raise ValueError("Image not found or path is incorrect")
+
+# 图像的尺寸和分块的尺寸
+img_height, img_width = saliency_map.shape
+block_size = 32  # 假设块的大小是32x32
+
+# 检查图像尺寸是否能被块大小整除
+if img_height % block_size != 0 or img_width % block_size != 0:
+    raise ValueError("Image dimensions should be divisible by the block size")
+
+# 初始化结果矩阵X
+X = np.zeros((block_size**2, (img_height * img_width) // (block_size**2)), dtype=np.float32)
+
+# 对图像进行非重叠分块，并进行Z字形扫描
+block_index = 0
+for y in range(0, img_height, block_size):
+    for x in range(0, img_width, block_size):
+        # 提取块
+        block = saliency_map[y:y+block_size, x:x+block_size]
+        
+        # Z字形扫描块
+        z_scan_block = block.flatten('F' if block_index % 2 == 0 else 'C')  # 'F'表示按列扫描，'C'按行扫描
+        
+        # 将扫描后的向量放入结果矩阵X
+        X[:, block_index] = z_scan_block
+        block_index += 1
+
+# 转换结果矩阵X为图像并保存
+X_image = (X - X.min()) / (X.max() - X.min()) * 255  # 归一化到0-255范围
+X_image = X_image.astype(np.uint8)  # 转换为无符号整型
+
+# 保存X图像
+cv2.imwrite('X_image.jpg', X_image)
+
+print("Z-scan and reassembly complete, result saved as 'X_image.jpg'")
